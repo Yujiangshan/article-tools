@@ -1269,6 +1269,17 @@
       line-height: 1;
     }
 
+    .bg-url-field { margin-top: 6px; }
+
+    .bg-url-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .bg-url-row input { flex: 1; min-width: 0; }
+
+    .bg-url-row .btn { flex: none; }
+
     /* ── Cover image element ── */
     .cover-img {
       position: absolute;
@@ -1513,6 +1524,26 @@
 
         <div class="psec">
           <div class="psec-header">
+            <span class="psec-title">背景图 Background</span>
+            <div class="field-actions" id="bg-img-actions" style="display:none">
+              <button class="vis-toggle on" id="btn-remove-bg" onclick="removeBgImage()">清除</button>
+            </div>
+          </div>
+          <label class="source-thumb-btn source-upload-btn" id="bg-upload-label" title="上传背景图片">
+            <span class="upload-icon" id="bg-upload-icon">+</span>
+            <span id="bg-upload-text">上传背景图片</span>
+            <input type="file" id="bg-file-input" accept="image/*" style="display:none">
+          </label>
+          <div class="field bg-url-field">
+            <div class="bg-url-row">
+              <input id="bg-url-input" type="text" placeholder="或粘贴在线图片地址 https://…">
+              <button class="btn" id="btn-bg-url" onclick="applyBgUrl()">应用</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="psec">
+          <div class="psec-header">
             <span class="psec-title">装饰 Decoration</span>
           </div>
           <div class="deco-picker" id="deco-picker">
@@ -1681,6 +1712,68 @@
         if (coverImgState.path) document.getElementById('cover-img').style.right = this.value + 'cqi';
       });
     }
+
+    // ── Background image ────────────────────────────────────────────────────
+    const bgImageState = { path: null };
+
+    function applyBgImage() {
+      const cover = document.getElementById('cover-main');
+      const actions = document.getElementById('bg-img-actions');
+      const text = document.getElementById('bg-upload-text');
+      const icon = document.getElementById('bg-upload-icon');
+      if (bgImageState.path) {
+        cover.style.backgroundImage = `url("${bgImageState.path}")`;
+        cover.style.backgroundSize = 'cover';
+        cover.style.backgroundPosition = 'center';
+        cover.style.backgroundRepeat = 'no-repeat';
+        actions.style.display = '';
+        text.textContent = '已设置 · 点击更换';
+        icon.style.display = 'none';
+      } else {
+        cover.style.backgroundImage = '';
+        cover.style.backgroundSize = '';
+        cover.style.backgroundPosition = '';
+        cover.style.backgroundRepeat = '';
+        actions.style.display = 'none';
+        text.textContent = '上传背景图片';
+        icon.style.display = '';
+      }
+    }
+
+    function removeBgImage() {
+      bgImageState.path = null;
+      document.getElementById('bg-file-input').value = '';
+      document.getElementById('bg-url-input').value = '';
+      applyBgImage();
+    }
+
+    document.getElementById('bg-file-input').addEventListener('change', function () {
+      if (!this.files[0]) return;
+      const reader = new FileReader();
+      reader.onload = e => { bgImageState.path = e.target.result; applyBgImage(); };
+      reader.readAsDataURL(this.files[0]);
+    });
+
+    // Apply an online image URL as the background. Try to inline it as a data URL
+    // so PNG export captures it; fall back to the raw URL (display only) on CORS failure.
+    function applyBgUrl() {
+      const input = document.getElementById('bg-url-input');
+      const url = input.value.trim();
+      if (!url) return;
+      const btn = document.getElementById('btn-bg-url');
+      btn.disabled = true; btn.textContent = '加载中';
+      const finish = () => { btn.disabled = false; btn.textContent = '应用'; };
+      toDataURL(url)
+        .then(dataUrl => { bgImageState.path = dataUrl; applyBgImage(); finish(); })
+        .catch(() => {
+          // CORS blocked inlining — still usable for preview, export may drop it.
+          bgImageState.path = url; applyBgImage(); finish();
+        });
+    }
+
+    document.getElementById('bg-url-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); applyBgUrl(); }
+    });
 
     // ── Color schemes ──────────────────────────────────────────────────────
     const COLOR_SCHEMES = [
@@ -2474,6 +2567,7 @@
       coverImgState.path = null; coverImgState.visible = true; coverImgState.size = 25; coverImgState.right = 3;
       document.querySelectorAll('.source-thumb-btn').forEach(b => b.classList.remove('active'));
       applyCoverImg();
+      removeBgImage();
       const p = RATIO_PRESETS['1200/480'];
       document.getElementById('sld-title').max = p.titleMax;
       document.getElementById('sld-subtitle').max = p.subtitleMax;
